@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from dotenv import load_dotenv
+from dotenv import load_dotenv #use this line only when you want to read from local env file instead of system variables
 import openai
 
 from PyQt6.QtWidgets import (
@@ -13,7 +13,7 @@ from PyQt6.QtGui import QFont, QTextCursor, QColor, QPalette
 
 # ====== Environment & API Key ======
 ROOT = Path(__file__).parent
-load_dotenv(ROOT / ".env")
+load_dotenv(ROOT / ".env") #use this line only when you want to read from local env file instead of system variables
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 
