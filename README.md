@@ -99,7 +99,7 @@ pixi run python small_chatbot.py
 
 ## Screenshots
 
-![screenshot1](./img/Screenshot1.png)
+![screenshot1](./img/Screenshot1.jpg)
 
 ---
 
