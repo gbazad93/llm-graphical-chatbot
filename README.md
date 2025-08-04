@@ -76,7 +76,7 @@ echo $OPENAI_API_KEY
 ### 5. Run the app
 
 ```bash
-pixi run python small_chatbot.py
+pixi run python main.py
 ```
 
 ---
@@ -105,7 +105,7 @@ pixi run python small_chatbot.py
 
 ## Customization
 - Update `MODEL` in the code to use a different OpenAI model if desired.
-- All UI colors/styles are defined in `_main_stylesheet()` method in the code for easy theming.
+- All UI colors/styles are defined in `styles.py` method in the code for easy theming.
 
 ---
 
