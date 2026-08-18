@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QFileDialog, QLineEdit, QFrame, QSplitter, QTextEdit,
     QMessageBox
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread
 from PyQt6.QtGui import QFont
 
 # Import local modules
@@ -27,6 +27,7 @@ from styles import (
     STYLE_CONFIG
 )
 from llm_helper import LLMHelper, MissingAPIKeyError
+from workers import AskWorker
 
 
 class DataChatBotDemo(QWidget):
@@ -43,6 +44,10 @@ class DataChatBotDemo(QWidget):
         self.data_text: str = ""
         self.chat_history: List[Tuple[str, str]] = []
         self.llm_helper: LLMHelper = LLMHelper()
+
+        # Set while a question is in flight on a worker thread.
+        self._ask_thread: Optional[QThread] = None
+        self._ask_worker: Optional[AskWorker] = None
         
         self._setup_window()
         self._build_ui()
@@ -272,15 +277,15 @@ class DataChatBotDemo(QWidget):
         self.chat_input.setMinimumHeight(44)
         self.chat_input.setStyleSheet(get_chat_input_style())
         
-        send_btn = QPushButton("Send ➤")
-        send_btn.setMinimumHeight(44)
-        send_btn.setMinimumWidth(100)
-        send_btn.setStyleSheet(get_send_button_style())
-        send_btn.clicked.connect(self._on_send)
+        self.send_btn = QPushButton("Send ➤")
+        self.send_btn.setMinimumHeight(44)
+        self.send_btn.setMinimumWidth(100)
+        self.send_btn.setStyleSheet(get_send_button_style())
+        self.send_btn.clicked.connect(self._on_send)
         self.chat_input.returnPressed.connect(self._on_send)
         
         chat_input_row.addWidget(self.chat_input, 1)
-        chat_input_row.addWidget(send_btn)
+        chat_input_row.addWidget(self.send_btn)
         input_layout.addLayout(chat_input_row)
         
         return input_container
@@ -362,19 +367,65 @@ class DataChatBotDemo(QWidget):
         
         # Show loading state
         self.status.setText("🤔 AI is analyzing your data...")
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        QApplication.processEvents()
-        
-        try:
-            ai_response = self.llm_helper.ask_llm(self.data_text, user_question)
-            self._add_to_chat("AI", ai_response)
-            self.status.setText("✅ Response received")
-        except Exception as ex:
-            error_msg = f"I apologize, but I encountered an error: {str(ex)}"
-            self._add_to_chat("AI", error_msg)
-            self.status.setText(f"❌ Error: {str(ex)}")
-        finally:
+        self._set_busy(True)
+
+        # The API call runs on a worker thread so the event loop keeps painting
+        # and the window stays responsive while we wait.
+        self._ask_thread = QThread(self)
+        self._ask_worker = AskWorker(self.llm_helper, self.data_text, user_question)
+        self._ask_worker.moveToThread(self._ask_thread)
+        self._ask_thread.started.connect(self._ask_worker.run)
+        self._ask_worker.succeeded.connect(self._on_answer_received)
+        self._ask_worker.failed.connect(self._on_answer_failed)
+        self._ask_thread.start()
+
+    def _set_busy(self, busy: bool) -> None:
+        """
+        Enable or disable input while a request is in flight.
+
+        Args:
+            busy (bool): True while waiting for the model, False when idle.
+        """
+        self.send_btn.setEnabled(not busy)
+        self.chat_input.setEnabled(not busy)
+        if busy:
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        else:
             QApplication.restoreOverrideCursor()
+
+    def _finish_request(self) -> None:
+        """Stop the worker thread and re-enable the input widgets."""
+        if self._ask_worker is not None:
+            self._ask_worker.deleteLater()
+        if self._ask_thread is not None:
+            self._ask_thread.quit()
+            self._ask_thread.wait()
+            self._ask_thread.deleteLater()
+        self._ask_worker = None
+        self._ask_thread = None
+        self._set_busy(False)
+
+    def _on_answer_received(self, answer: str) -> None:
+        """
+        Show a successful response from the worker thread.
+
+        Args:
+            answer (str): The text returned by the model.
+        """
+        self._add_to_chat("AI", answer)
+        self.status.setText("✅ Response received")
+        self._finish_request()
+
+    def _on_answer_failed(self, error: str) -> None:
+        """
+        Show a failed request without losing the conversation.
+
+        Args:
+            error (str): Description of what went wrong.
+        """
+        self._add_to_chat("AI", f"I apologize, but I encountered an error: {error}")
+        self.status.setText(f"❌ Error: {error}")
+        self._finish_request()
     
     def _add_to_chat(self, sender: str, message: str) -> None:
         """
