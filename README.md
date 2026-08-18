@@ -38,6 +38,17 @@ pixi install
 
 This will create a new environment with all required dependencies (see [pixi.toml](./pixi.toml)).
 
+#### Prefer pip? (no pixi)
+
+A plain virtual environment works too - `requirements.txt` mirrors the same
+dependencies:
+
+```bash
+python -m venv .venv
+# Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+```
+
 ### 4. Set your OpenAI API key
 
 You can store your API key in a `.env` file in the project root (where the main `.py` file is):
@@ -79,6 +90,12 @@ echo $OPENAI_API_KEY
 pixi run python main.py
 ```
 
+Or, in a pip environment:
+
+```bash
+python main.py
+```
+
 ---
 
 ## Dependencies
@@ -86,7 +103,7 @@ pixi run python main.py
 - [openai](https://pypi.org/project/openai/)
 - [python-dotenv](https://pypi.org/project/python-dotenv/)
 
-(Handled automatically by pixi install)
+(Handled automatically by `pixi install`, or by `pip install -r requirements.txt`.)
 
 ---
 
@@ -112,4 +129,10 @@ pixi run python main.py
 ## Credits
 - Demo and concept by Bobby Azad
 - Built using [PyQt6](https://riverbankcomputing.com/software/pyqt/intro) and [OpenAI API](https://platform.openai.com/docs/api-reference)
+
+---
+
+## License
+
+Released under the [MIT License](./LICENSE).
 
