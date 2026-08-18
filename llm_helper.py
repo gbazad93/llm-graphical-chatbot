@@ -9,13 +9,25 @@ import os
 import re
 from typing import List, Tuple, Optional
 import openai
+from dotenv import load_dotenv
 from pathlib import Path
 
 
 # Environment & API Key
 ROOT = Path(__file__).parent
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-openai.api_key = OPENAI_API_KEY
+
+# The README documents keeping the key in a .env next to this module, so load
+# it here. override=False means a real environment variable always wins.
+load_dotenv(ROOT / ".env", override=False)
+
+
+class MissingAPIKeyError(RuntimeError):
+    """Raised when no OpenAI API key is available."""
+
+
+def get_api_key() -> Optional[str]:
+    """Return the API key, read at call time instead of cached at import."""
+    return os.getenv("OPENAI_API_KEY")
 
 MODEL = "gpt-4o-mini"
 
@@ -43,14 +55,15 @@ class LLMHelper:
         Set up the OpenAI API configuration.
         
         Raises:
-            ValueError: If OPENAI_API_KEY environment variable is not set.
+            MissingAPIKeyError: If no OpenAI API key can be found.
         """
-        if not OPENAI_API_KEY:
-            raise ValueError(
-                "OPENAI_API_KEY environment variable is not set. "
-                "Please set it before using the application."
+        api_key = get_api_key()
+        if not api_key:
+            raise MissingAPIKeyError(
+                "No OpenAI API key found. Add OPENAI_API_KEY to a .env file next "
+                "to llm_helper.py, or set it as an environment variable."
             )
-        openai.api_key = OPENAI_API_KEY
+        openai.api_key = api_key
     
     def format_markdown_to_html(self, text: str) -> str:
         """
@@ -219,7 +232,7 @@ class LLMHelper:
         Returns:
             bool: True if API key is available, False otherwise.
         """
-        return bool(OPENAI_API_KEY)
+        return bool(get_api_key())
     
     @staticmethod
     def get_available_models() -> List[str]:

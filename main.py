@@ -12,7 +12,8 @@ from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPlainTextEdit,
-    QPushButton, QFileDialog, QLineEdit, QFrame, QSplitter, QTextEdit
+    QPushButton, QFileDialog, QLineEdit, QFrame, QSplitter, QTextEdit,
+    QMessageBox
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
@@ -25,7 +26,7 @@ from styles import (
     get_send_button_style, get_status_container_style, get_welcome_message,
     STYLE_CONFIG
 )
-from llm_helper import LLMHelper
+from llm_helper import LLMHelper, MissingAPIKeyError
 
 
 class DataChatBotDemo(QWidget):
@@ -444,16 +445,26 @@ def main() -> None:
     app = QApplication(sys.argv)
     app.setStyle('Fusion')  # Use Fusion style for better cross-platform appearance
     
-    # Check if API key is available
+    # A missing key is the most common setup problem, so say so in the UI
+    # instead of only on a console the user may never look at.
     if not LLMHelper.validate_api_key():
-        print("Error: OPENAI_API_KEY environment variable is not set.")
-        print("Please set your OpenAI API key before running the application.")
+        message = (
+            "No OpenAI API key found.\n\n"
+            "Add OPENAI_API_KEY to a .env file next to main.py, or set it as an "
+            "environment variable, then start the app again."
+        )
+        print(f"Error: {message}")
+        QMessageBox.critical(None, "Missing OpenAI API key", message)
         sys.exit(1)
     
     try:
         widget = DataChatBotDemo()
         widget.show()
         sys.exit(app.exec())
+    except MissingAPIKeyError as exc:
+        print(f"Error: {exc}")
+        QMessageBox.critical(None, "Missing OpenAI API key", str(exc))
+        sys.exit(1)
     except Exception as e:
         print(f"Error starting application: {str(e)}")
         sys.exit(1)
